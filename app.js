@@ -84,6 +84,47 @@ function guardProjectPin(project) {
   }
 }
 
+// board.html / report.html이 페이지 안 잠금 화면(오버레이)으로 암호를 물어볼 때 사용합니다.
+// window.prompt()는 새 탭에서 링크로 막 들어왔을 때 브라우저가 조용히 무시해버리는 경우가 있어서
+// (새로고침하면 되던 것도 첫 진입 때는 안 뜨는 문제), 화면 안의 입력창으로 대체한 버전입니다.
+// 맞는 암호를 넣을 때까지 계속 열려 있고, 맞으면 resolve(true)로 끝납니다.
+function guardProjectPinAsync(project, overlayId, inputId, btnId, errId) {
+  return new Promise((resolve) => {
+    if (!project.access_pin) { resolve(true); return; }
+    if (isPinUnlocked(project.share_code)) { resolve(true); return; }
+
+    const overlay = document.getElementById(overlayId);
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const err = document.getElementById(errId);
+    if (!overlay || !input || !btn) { resolve(true); return; } // 오버레이가 없는 페이지면 안전하게 통과
+
+    overlay.style.display = "flex";
+    if (err) err.style.display = "none";
+    input.value = "";
+    input.focus();
+
+    function trySubmit() {
+      if (input.value === project.access_pin) {
+        markPinUnlocked(project.share_code);
+        overlay.style.display = "none";
+        btn.removeEventListener("click", trySubmit);
+        input.removeEventListener("keydown", onKeydown);
+        resolve(true);
+      } else {
+        if (err) err.style.display = "block";
+        input.value = "";
+        input.focus();
+      }
+    }
+    function onKeydown(e) {
+      if (e.key === "Enter") trySubmit();
+    }
+    btn.addEventListener("click", trySubmit);
+    input.addEventListener("keydown", onKeydown);
+  });
+}
+
 /* ==================== 실행 현황 (구 프로젝트보드) ==================== */
 
 /* ---------------- 마일스톤 ---------------- */
@@ -785,12 +826,28 @@ function saveRecentProject(title, share_code) {
 }
 
 // 새 프로젝트를 만들기 전에, 같은 브라우저의 "최근 만든 프로젝트" 목록에 이름이 겹치는 게 있는지 확인합니다.
-// 로그인이 없는 구조라 이 브라우저 안에서만 확인 가능합니다 — 다른 사람/다른 기기의 프로젝트는 알 수 없습니다.
+// (참고: 이 방식은 "목록에서 지우기"로 최근 목록에서 지워진 프로젝트나, 다른 사람/다른 브라우저가 만든
+// 같은 이름의 프로젝트는 잡아내지 못합니다 — 그래서 실제 중복 방지는 아래 findDuplicateProjectByTitle을 씁니다.)
 function findDuplicateRecentProject(title) {
   const norm = (s) => (s || "").trim().toLowerCase().replace(/\s+/g, "");
   const target = norm(title);
   if (!target) return null;
   return getRecentProjects().find((p) => norm(p.title) === target) || null;
+}
+
+// 새 프로젝트를 만들기 전에, Supabase에 이미 저장된 모든 프로젝트 중 이름이 겹치는 게 있는지 확인합니다.
+// "최근 만든 프로젝트" 목록(이 브라우저 기록)과 달리, 이 검사는 실제 데이터베이스를 직접 조회하므로
+// 다른 브라우저·다른 PM이 만든 프로젝트, 또는 "목록에서 지우기"로 이 브라우저 목록에서만 사라진
+// 프로젝트도 모두 잡아냅니다. (여러 명이 같은 Supabase를 함께 쓰는 이 구조에서는 이 방식이 더 안전합니다.)
+async function findDuplicateProjectByTitle(title) {
+  const norm = (s) => (s || "").trim().toLowerCase().replace(/\s+/g, "");
+  const target = norm(title);
+  if (!target) return null;
+  const { data, error } = await supabaseClient
+    .from("aob_projects")
+    .select("title, share_code, created_at");
+  if (error || !data) return null; // 조회 실패 시 경고 없이 그냥 진행 (생성 자체를 막지는 않음)
+  return data.find((p) => norm(p.title) === target) || null;
 }
 
 function removeRecentProject(share_code) {
