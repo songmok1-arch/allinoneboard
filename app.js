@@ -784,6 +784,15 @@ function saveRecentProject(title, share_code) {
   }
 }
 
+// 새 프로젝트를 만들기 전에, 같은 브라우저의 "최근 만든 프로젝트" 목록에 이름이 겹치는 게 있는지 확인합니다.
+// 로그인이 없는 구조라 이 브라우저 안에서만 확인 가능합니다 — 다른 사람/다른 기기의 프로젝트는 알 수 없습니다.
+function findDuplicateRecentProject(title) {
+  const norm = (s) => (s || "").trim().toLowerCase().replace(/\s+/g, "");
+  const target = norm(title);
+  if (!target) return null;
+  return getRecentProjects().find((p) => norm(p.title) === target) || null;
+}
+
 function removeRecentProject(share_code) {
   try {
     const list = getRecentProjects().filter((p) => p.share_code !== share_code);
