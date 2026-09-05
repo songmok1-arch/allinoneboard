@@ -9,6 +9,16 @@
 </head>
 <body>
 
+<div id="pinGateOverlay" class="pin-gate-overlay" style="display:none;">
+  <div class="pin-gate-card">
+    <h2>🔒 접근 암호가 필요합니다</h2>
+    <p>이 프로젝트는 접근 암호로 보호되어 있습니다. 암호를 입력해주세요.</p>
+    <input type="password" id="pinGateInput" placeholder="접근 암호">
+    <button type="button" class="btn" id="pinGateBtn" style="width:100%; margin-top:10px;">확인</button>
+    <p id="pinGateError" class="pin-gate-error" style="display:none;">암호가 올바르지 않습니다. 다시 시도해주세요.</p>
+  </div>
+</div>
+
 <header class="site">
   <div class="wrap">
     <a class="brand" href="index.html" style="color:inherit;"><span class="mark">A</span> PM 올인원 보드</a>
@@ -32,8 +42,10 @@
         <button class="btn ghost" id="exportJsonBtn">JSON 백업 다운로드</button>
         <button class="btn ghost" id="exportCsvBtn">CSV 백업 다운로드</button>
         <button class="btn ghost" id="pinSettingsBtn">🔒 접근 암호 설정</button>
+        <button class="btn ghost" id="addToMyProjectsBtn">📌 내 프로젝트에 추가</button>
       </div>
       <p class="section-hint">접근 암호를 설정하면, 이 프로젝트 링크(board.html/report.html)를 여는 사람은 화면을 보기 전에 암호를 입력해야 합니다. 다만 Supabase API를 직접 호출하면 우회될 수 있어 완전한 보안은 아니며, 같은 팀 내 실수 방지용으로 생각해주세요.</p>
+      <p class="section-hint">"📌 내 프로젝트에 추가"를 누르면 이 프로젝트가 이 브라우저의 "내 프로젝트 모아보기" 목록에 저장됩니다 — 링크로 처음 들어온 프로젝트도 다음부터는 dashboard.html에서 바로 찾을 수 있습니다. (로그인이 없는 구조라 이 브라우저에서만 기억됩니다.)</p>
     </div>
   </section>
 
@@ -696,11 +708,7 @@
     }
     try {
       currentProject = await loadProjectByCode(code);
-      if (!guardProjectPin(currentProject)) {
-        projectTitleEl.textContent = "잠긴 프로젝트입니다";
-        document.getElementById("milestoneList").innerHTML = `<div class="empty-state">암호를 입력하지 않아 내용을 볼 수 없습니다. 새로고침하면 다시 입력할 수 있습니다.</div>`;
-        return;
-      }
+      await guardProjectPinAsync(currentProject, "pinGateOverlay", "pinGateInput", "pinGateBtn", "pinGateError");
       projectTitleEl.textContent = currentProject.title;
       shareUrlEl.textContent = window.location.href;
       document.getElementById("reportLink").href = `report.html?p=${encodeURIComponent(code)}`;
@@ -1000,6 +1008,15 @@
     } catch (e) {
       alert("암호를 저장하지 못했습니다. Supabase 스키마에 access_pin 컬럼이 추가되었는지 확인해주세요 (supabase-schema.sql 재실행).");
     }
+  });
+
+  /* ---------- 내 프로젝트에 추가 ---------- */
+  // 링크로 처음 들어온 프로젝트(이 브라우저에서 직접 만들지 않은 프로젝트)도
+  // 이 버튼으로 "최근 만든 프로젝트" 목록에 넣어두면 dashboard.html(내 프로젝트 모아보기)에서 계속 찾을 수 있습니다.
+  document.getElementById("addToMyProjectsBtn").addEventListener("click", () => {
+    if (!currentProject) return;
+    saveRecentProject(currentProject.title, currentProject.share_code);
+    alert(`"${currentProject.title}" 프로젝트를 이 브라우저의 "내 프로젝트 모아보기" 목록에 추가했습니다.`);
   });
 
   /* ---------- 공유 / 내보내기 ---------- */
