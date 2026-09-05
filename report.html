@@ -13,6 +13,7 @@
   <div class="wrap">
     <a class="brand" href="index.html" style="color:inherit;"><span class="mark">A</span> PM 올인원 보드</a>
     <nav class="site-nav">
+      <a href="dashboard.html">내 프로젝트 모아보기</a>
       <a href="index.html">새 프로젝트 만들기</a>
     </nav>
   </div>
@@ -124,21 +125,7 @@
     return `<p class="report-empty">${escapeHtml(text)}</p>`;
   }
 
-  async function loadEverything(projectId) {
-    const [meetings, milestones, issues, feedbackItems, reports, tasks, risks, retroItems] = await Promise.all([
-      loadMeetings(projectId),
-      loadMilestones(projectId),
-      loadIssues(projectId),
-      loadFeedbackItems(projectId),
-      loadReports(projectId),
-      loadTasks(projectId),
-      loadRisks(projectId),
-      loadRetroItems(projectId),
-    ]);
-    const meetingIds = meetings.map((m) => m.id);
-    const actionItems = await loadActionItems(meetingIds);
-    return { meetings, milestones, issues, feedbackItems, reports, tasks, risks, retroItems, actionItems };
-  }
+  // loadEverything()은 app.js에 공통 함수로 정의되어 있습니다 (대시보드/백업 내보내기와 공유).
 
   function renderMeetings(meetings, actionItems) {
     if (!meetings.length) return emptyRow("아직 등록된 회의가 없습니다.");

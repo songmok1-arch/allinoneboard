@@ -289,6 +289,15 @@ footer.site a { color: var(--ink-faint); margin-right: 14px; }
 
 .report-footnote { color: var(--ink-faint); font-size: 0.8rem; margin: 32px 0 0; }
 
+.section-hint { color: var(--ink-faint); font-size: 0.82rem; margin: -6px 0 14px; }
+
+/* ---- 대시보드 (dashboard.html) ---- */
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 18px 0 48px; }
+.dash-card { display: flex; flex-direction: column; }
+@media (max-width: 640px) {
+  .dash-grid { grid-template-columns: 1fr; }
+}
+
 @media print {
   header.site nav, .share-box .btn, footer.site { display: none; }
   .report-grid { grid-template-columns: 1fr 1fr; }

@@ -13,6 +13,7 @@
   <div class="wrap">
     <a class="brand" href="index.html" style="color:inherit;"><span class="mark">A</span> PM 올인원 보드</a>
     <nav class="site-nav">
+      <a href="dashboard.html">내 프로젝트 모아보기</a>
       <a href="index.html">새 프로젝트 만들기</a>
     </nav>
   </div>
@@ -28,6 +29,8 @@
         <button class="btn ghost" id="copyLinkBtn">링크 복사</button>
         <button class="btn ghost" id="exportBtn">전체 현황 마크다운으로 복사</button>
         <a class="btn ghost" id="reportLink" href="#" target="_blank" rel="noopener">주간 리포트 보기</a>
+        <button class="btn ghost" id="exportJsonBtn">JSON 백업 다운로드</button>
+        <button class="btn ghost" id="exportCsvBtn">CSV 백업 다운로드</button>
       </div>
     </div>
   </section>
@@ -138,6 +141,7 @@
             <h2>피드백 / 승인 요청</h2>
             <span class="section-count" id="feedbackCount"></span>
           </div>
+          <p class="section-hint">요청을 "승인됨"으로 바꾸면 실행을 놓치지 않도록 이슈/리스크 목록에 후속 이슈가 자동으로 생성됩니다.</p>
           <div class="field">
             <label for="fbTitle">요청 제목</label>
             <input type="text" id="fbTitle" placeholder="예: B안으로 최종 확정해도 될까요?">
@@ -825,6 +829,16 @@
       const f = currentFeedback.find((x) => x.id === id);
       const next = { pending: "approved", approved: "rejected", rejected: "pending" }[f.status] || "pending";
       await updateFeedbackStatus(id, next);
+      if (next === "approved") {
+        // 모듈 간 연동: 승인된 요청은 실행할 일로 놓치지 않도록 이슈로 자동 전환됩니다.
+        await addIssue(currentProject.id, {
+          title: `[승인 후속] ${f.title}`,
+          severity: "medium",
+          owner: null,
+          memo: "피드백/승인 요청이 승인되어 자동으로 생성된 이슈입니다. 실행 후 상태를 갱신해주세요.",
+        });
+        await refreshIssues();
+      }
       await refreshFeedback();
     } else if (deleteBtn) {
       if (!confirm("이 요청을 삭제할까요? 댓글도 함께 삭제됩니다.")) return;
@@ -981,6 +995,38 @@
     const btn = document.getElementById("exportBtn");
     btn.textContent = ok ? "복사됨" : "복사 실패";
     setTimeout(() => { btn.textContent = "전체 현황 마크다운으로 복사"; }, 1500);
+  });
+
+  document.getElementById("exportJsonBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("exportJsonBtn");
+    const original = btn.textContent;
+    btn.textContent = "내려받는 중...";
+    try {
+      const data = await loadEverything(currentProject.id);
+      const json = buildJSONExport(currentProject, data);
+      const date = new Date().toISOString().slice(0, 10);
+      downloadFile(`${safeFileName(currentProject.title)}_백업_${date}.json`, json, "application/json");
+    } catch (e) {
+      alert("백업 파일을 만드는 중 오류가 발생했습니다.");
+    } finally {
+      btn.textContent = original;
+    }
+  });
+
+  document.getElementById("exportCsvBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("exportCsvBtn");
+    const original = btn.textContent;
+    btn.textContent = "내려받는 중...";
+    try {
+      const data = await loadEverything(currentProject.id);
+      const csv = buildCSVExport(currentProject, data);
+      const date = new Date().toISOString().slice(0, 10);
+      downloadFile(`${safeFileName(currentProject.title)}_백업_${date}.csv`, "\uFEFF" + csv, "text/csv;charset=utf-8;");
+    } catch (e) {
+      alert("백업 파일을 만드는 중 오류가 발생했습니다.");
+    } finally {
+      btn.textContent = original;
+    }
   });
 
   init();

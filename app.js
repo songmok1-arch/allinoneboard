@@ -461,6 +461,121 @@ function categoryLabel(category) {
 
 /* ==================== 내보내기 / 유틸 ==================== */
 
+async function loadEverything(projectId) {
+  const [meetings, milestones, issues, feedbackItems, reports, tasks, risks, retroItems] = await Promise.all([
+    loadMeetings(projectId),
+    loadMilestones(projectId),
+    loadIssues(projectId),
+    loadFeedbackItems(projectId),
+    loadReports(projectId),
+    loadTasks(projectId),
+    loadRisks(projectId),
+    loadRetroItems(projectId),
+  ]);
+  const [actionItems, feedbackComments] = await Promise.all([
+    loadActionItems(meetings.map((m) => m.id)),
+    loadFeedbackComments(feedbackItems.map((f) => f.id)),
+  ]);
+  return { meetings, milestones, issues, feedbackItems, feedbackComments, reports, tasks, risks, retroItems, actionItems };
+}
+
+function csvField(v) {
+  const s = v === null || v === undefined ? "" : String(v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function csvRow(fields) {
+  return fields.map(csvField).join(",");
+}
+
+function buildCSVExport(project, data) {
+  const { milestones, issues, feedbackItems, feedbackComments, meetings, actionItems, reports, tasks, risks, retroItems } = data;
+  const lines = [];
+  lines.push(csvRow(["프로젝트", project.title]));
+  lines.push(csvRow(["내보낸 시각", new Date().toLocaleString("ko-KR")]));
+  lines.push("");
+
+  lines.push("[회의록]");
+  lines.push(csvRow(["제목", "날짜"]));
+  meetings.forEach((m) => lines.push(csvRow([m.title, m.meeting_date || ""])));
+  lines.push("");
+
+  lines.push("[액션아이템]");
+  lines.push(csvRow(["회의", "할일", "담당자", "마감일", "상태"]));
+  actionItems.forEach((a) => {
+    const meeting = meetings.find((m) => m.id === a.meeting_id);
+    lines.push(csvRow([meeting ? meeting.title : "", a.task, a.owner || "", a.due_date || "", actionItemStatusLabel(a.status)]));
+  });
+  lines.push("");
+
+  lines.push("[마일스톤]");
+  lines.push(csvRow(["제목", "마감일", "상태", "메모"]));
+  milestones.forEach((m) => lines.push(csvRow([m.title, m.due_date || "", milestoneStatusLabel(m.status), m.memo || ""])));
+  lines.push("");
+
+  lines.push("[이슈-리스크]");
+  lines.push(csvRow(["제목", "심각도", "담당자", "상태", "메모"]));
+  issues.forEach((it) => lines.push(csvRow([it.title, severityLabel(it.severity), it.owner || "", issueStatusLabel(it.status), it.memo || ""])));
+  lines.push("");
+
+  lines.push("[피드백-승인요청]");
+  lines.push(csvRow(["제목", "설명", "상태"]));
+  feedbackItems.forEach((f) => lines.push(csvRow([f.title, f.description || "", feedbackStatusLabel(f.status)])));
+  lines.push("");
+
+  lines.push("[피드백 댓글]");
+  lines.push(csvRow(["요청 제목", "작성자", "댓글"]));
+  feedbackComments.forEach((c) => {
+    const item = feedbackItems.find((f) => f.id === c.feedback_item_id);
+    lines.push(csvRow([item ? item.title : "", c.author_name, c.comment]));
+  });
+  lines.push("");
+
+  lines.push("[상태보고서]");
+  lines.push(csvRow(["날짜", "신호등", "이번 주 진행 요약", "이슈-리스크", "다음 주 계획"]));
+  reports.forEach((r) => lines.push(csvRow([r.report_date, healthLabel(r.health), r.progress_summary || "", r.risks_issues || "", r.next_week_plan || ""])));
+  lines.push("");
+
+  lines.push("[워크로드]");
+  lines.push(csvRow(["담당자", "업무", "상태", "마감일", "메모"]));
+  tasks.forEach((t) => lines.push(csvRow([t.owner_name, t.title, taskStatusLabel(t.status), t.due_date || "", t.memo || ""])));
+  lines.push("");
+
+  lines.push("[리스크매트릭스]");
+  lines.push(csvRow(["제목", "확률", "영향", "종합 위험도", "담당자", "상태", "대응 계획"]));
+  risks.forEach((r) => lines.push(csvRow([r.title, probabilityLabel(r.probability), impactLabel(r.impact), riskLevel(r.probability, r.impact), r.owner || "", riskStatusLabel(r.status), r.mitigation_plan || ""])));
+  lines.push("");
+
+  lines.push("[회고]");
+  lines.push(csvRow(["구분", "작성자", "내용"]));
+  retroItems.forEach((i) => lines.push(csvRow([categoryLabel(i.category), i.author_name, i.content])));
+
+  return lines.join("\n");
+}
+
+function buildJSONExport(project, data) {
+  return JSON.stringify({
+    project: { title: project.title, share_code: project.share_code, exported_at: new Date().toISOString() },
+    ...data,
+  }, null, 2);
+}
+
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function safeFileName(title) {
+  return (title || "프로젝트").replace(/[\\/:*?"<>|]/g, "_").trim() || "프로젝트";
+}
+
 function exportMarkdown(project, data) {
   const { milestones, issues, feedbackItems, meetings, actionItems, reports, tasks, risks, retroItems } = data;
   const lines = [`# ${project.title} — PM 올인원 보드 현황`, ""];
