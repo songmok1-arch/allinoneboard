@@ -16,11 +16,13 @@ function genShareCode(len = 6) {
   return out;
 }
 
-async function createProject(title) {
+async function createProject(title, accessPin) {
   const share_code = genShareCode();
+  const payload = { title, share_code };
+  if (accessPin) payload.access_pin = accessPin;
   const { data, error } = await supabaseClient
     .from("aob_projects")
-    .insert({ title, share_code })
+    .insert(payload)
     .select()
     .single();
   if (error) throw error;
@@ -35,6 +37,51 @@ async function loadProjectByCode(code) {
     .single();
   if (error) throw error;
   return data;
+}
+
+// 화면 잠금(PIN)을 나중에 설정/변경/해제할 때 씁니다. pin이 빈 문자열/null이면 잠금을 해제합니다.
+// 주의: RLS가 완전히 개방되어 있어 이 PIN은 화면 UI 단의 잠금일 뿐, 진짜 접근 통제는 아닙니다.
+async function setProjectPin(projectId, pin) {
+  const { error } = await supabaseClient
+    .from("aob_projects")
+    .update({ access_pin: pin || null })
+    .eq("id", projectId);
+  if (error) throw error;
+}
+
+// sessionStorage에 "이 브라우저 탭에서는 이미 PIN을 확인했다"를 기록/조회하는 헬퍼.
+function pinSessionKey(shareCode) {
+  return `aob_pin_ok_${shareCode}`;
+}
+function isPinUnlocked(shareCode) {
+  try {
+    return sessionStorage.getItem(pinSessionKey(shareCode)) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+function markPinUnlocked(shareCode) {
+  try {
+    sessionStorage.setItem(pinSessionKey(shareCode), "1");
+  } catch (e) {
+    /* 세션스토리지를 못 쓰는 환경이면 그냥 매번 다시 물어봅니다. */
+  }
+}
+
+// board.html/report.html 공통: 프로젝트에 access_pin이 설정되어 있으면 잠금 화면을 띄우고,
+// 맞는 PIN을 입력해야 통과시킵니다. 통과하면 true, 사용자가 취소하면 false를 반환합니다.
+function guardProjectPin(project) {
+  if (!project.access_pin) return true;
+  if (isPinUnlocked(project.share_code)) return true;
+  while (true) {
+    const input = window.prompt("이 프로젝트는 접근 암호로 보호되어 있습니다. 암호를 입력하세요.");
+    if (input === null) return false; // 사용자가 취소
+    if (input === project.access_pin) {
+      markPinUnlocked(project.share_code);
+      return true;
+    }
+    window.alert("암호가 올바르지 않습니다. 다시 시도해주세요.");
+  }
 }
 
 /* ==================== 실행 현황 (구 프로젝트보드) ==================== */

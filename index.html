@@ -23,9 +23,13 @@
 <main>
   <section class="hero">
     <div class="wrap">
-      <div class="eyebrow">전용 링크로 안전하게 공유 · 초대 없이 바로 참여 · 추가 비용 없는 팀 협업</div>
-      <h1>회의록·일정·이슈·승인부터 주간보고·워크로드·리스크·회고까지, 프로젝트 하나에 링크 하나.</h1>
-      <p class="lede">PM 올인원 보드는 프로젝트보드(마일스톤·이슈·승인·회의)와 루틴보드(상태보고·워크로드·리스크·회고) 8가지 기능을 프로젝트 하나 아래 통합한 도구입니다. "실행 현황"과 "정기 루틴" 두 탭으로 나뉘어 있어, 지금 처리할 일과 이번 주기에 챙길 루틴을 한 링크 안에서 헷갈리지 않고 확인할 수 있습니다.</p>
+      <div class="eyebrow-chips">
+        <span class="chip">전용 링크로 안전하게 공유</span>
+        <span class="chip">초대 없이 바로 참여</span>
+        <span class="chip">추가 비용 없는 팀 협업</span>
+      </div>
+      <h1>지금 할 일과, 매주 챙길 루틴을 — 링크 하나로.</h1>
+      <p class="lede">PM 올인원 보드는 프로젝트의 실행 현황과 정기 루틴을 한 화면에 담은 도구입니다. "실행 현황"과 "정기 루틴" 두 탭으로 나뉘어 있어, 오늘 처리할 일과 이번 주 챙길 루틴을 헷갈리지 않고 한 링크에서 확인할 수 있습니다.</p>
     </div>
   </section>
 
@@ -36,6 +40,10 @@
         <div class="field">
           <label for="title">프로젝트 이름</label>
           <input type="text" id="title" placeholder="예: 9월 신규 서비스 런칭">
+        </div>
+        <div class="field">
+          <label for="accessPin">접근 암호 (선택, 4자리 이상 권장)</label>
+          <input type="text" id="accessPin" placeholder="비워두면 암호 없이 링크로만 공유됩니다">
         </div>
         <button class="btn" id="createBtn" style="width:100%;">프로젝트 만들고 시작하기</button>
         <p id="errorMsg" style="color:#C0362C; font-size:0.85rem; margin-top:10px; display:none;"></p>
@@ -101,10 +109,12 @@
 <script>
   const createBtn = document.getElementById("createBtn");
   const titleInput = document.getElementById("title");
+  const pinInput = document.getElementById("accessPin");
   const errorMsg = document.getElementById("errorMsg");
 
   async function handleCreate() {
     const title = titleInput.value.trim();
+    const accessPin = pinInput.value.trim();
     if (!title) {
       titleInput.focus();
       return;
@@ -113,7 +123,7 @@
     createBtn.textContent = "만드는 중...";
     errorMsg.style.display = "none";
     try {
-      const project = await createProject(title);
+      const project = await createProject(title, accessPin);
       saveRecentProject(title, project.share_code);
       window.location.href = `board.html?p=${project.share_code}`;
     } catch (e) {

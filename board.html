@@ -31,7 +31,9 @@
         <a class="btn ghost" id="reportLink" href="#" target="_blank" rel="noopener">주간 리포트 보기</a>
         <button class="btn ghost" id="exportJsonBtn">JSON 백업 다운로드</button>
         <button class="btn ghost" id="exportCsvBtn">CSV 백업 다운로드</button>
+        <button class="btn ghost" id="pinSettingsBtn">🔒 접근 암호 설정</button>
       </div>
+      <p class="section-hint">접근 암호를 설정하면, 이 프로젝트 링크(board.html/report.html)를 여는 사람은 화면을 보기 전에 암호를 입력해야 합니다. 다만 Supabase API를 직접 호출하면 우회될 수 있어 완전한 보안은 아니며, 같은 팀 내 실수 방지용으로 생각해주세요.</p>
     </div>
   </section>
 
@@ -694,6 +696,11 @@
     }
     try {
       currentProject = await loadProjectByCode(code);
+      if (!guardProjectPin(currentProject)) {
+        projectTitleEl.textContent = "잠긴 프로젝트입니다";
+        document.getElementById("milestoneList").innerHTML = `<div class="empty-state">암호를 입력하지 않아 내용을 볼 수 없습니다. 새로고침하면 다시 입력할 수 있습니다.</div>`;
+        return;
+      }
       projectTitleEl.textContent = currentProject.title;
       shareUrlEl.textContent = window.location.href;
       document.getElementById("reportLink").href = `report.html?p=${encodeURIComponent(code)}`;
@@ -969,6 +976,30 @@
       await deleteRetroItem(delBtn.getAttribute("data-id"));
       await refreshRetroItems();
     });
+  });
+
+  /* ---------- 접근 암호 설정 ---------- */
+  document.getElementById("pinSettingsBtn").addEventListener("click", async () => {
+    if (!currentProject) return;
+    const has = !!currentProject.access_pin;
+    const msg = has
+      ? "새 암호를 입력하세요 (4자리 이상 권장). 빈 값으로 확인하면 암호가 해제됩니다."
+      : "이 프로젝트에 설정할 접근 암호를 입력하세요 (4자리 이상 권장). 취소하면 그대로 둡니다.";
+    const input = window.prompt(msg, "");
+    if (input === null) return; // 취소
+    const pin = input.trim();
+    try {
+      await setProjectPin(currentProject.id, pin || null);
+      currentProject.access_pin = pin || null;
+      if (pin) {
+        markPinUnlocked(currentProject.share_code);
+        alert("접근 암호가 설정되었습니다. 이제부터 이 링크를 여는 사람은 암호를 입력해야 합니다.");
+      } else {
+        alert("접근 암호가 해제되었습니다. 이제 링크만 알면 누구나 볼 수 있습니다.");
+      }
+    } catch (e) {
+      alert("암호를 저장하지 못했습니다. Supabase 스키마에 access_pin 컬럼이 추가되었는지 확인해주세요 (supabase-schema.sql 재실행).");
+    }
   });
 
   /* ---------- 공유 / 내보내기 ---------- */
