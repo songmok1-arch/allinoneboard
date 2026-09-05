@@ -239,4 +239,58 @@ footer.site a { color: var(--ink-faint); margin-right: 14px; }
   .retro-list { max-height: 280px; }
   .tab-bar { overflow-x: auto; }
   h1 { font-size: 1.6rem; }
+  .report-grid { grid-template-columns: 1fr; }
+  .attn-chip { flex-direction: column; align-items: flex-start; gap: 2px; }
+}
+
+/* ---- 주간 리포트 (report.html) ---- */
+.mono-ish { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+
+.report-h2 { font-size: 1.05rem; margin: 0 0 12px; }
+.report-section-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 8px; margin-bottom: 16px; border-bottom: 3px solid var(--accent); }
+.report-section-head.routine { border-bottom-color: #6B4FA0; }
+.report-section-sub { font-size: 0.78rem; color: var(--ink-faint); }
+
+.attn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.attn-chip {
+  display: flex; align-items: baseline; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; font-size: 0.86rem; box-shadow: var(--shadow);
+}
+.attn-chip .attn-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; position: relative; top: 1px; }
+.attn-chip.warn .attn-dot { background: var(--warn); }
+.attn-chip.critical .attn-dot { background: var(--danger); }
+.attn-chip .attn-label { font-weight: 700; }
+.attn-chip .attn-sub { color: var(--ink-faint); font-size: 0.8rem; }
+
+.report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.report-card-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); margin: 0 0 12px; }
+
+.report-item { padding: 10px 0; border-top: 1px solid var(--line); }
+.report-item:first-child { border-top: none; padding-top: 0; }
+.report-item-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.report-item-title { font-weight: 700; font-size: 0.94rem; }
+.report-item-sub { color: var(--ink-soft); font-size: 0.84rem; }
+.report-subrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.86rem; padding: 4px 0; color: var(--ink-soft); }
+.report-kv { font-size: 0.86rem; margin: 8px 0 0; }
+.report-kv b { color: var(--ink-faint); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+.report-empty { color: var(--ink-faint); font-size: 0.86rem; font-style: italic; margin: 0; }
+
+.dday-badge {
+  font-size: 0.72rem; font-weight: 700; padding: 1px 8px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent); white-space: nowrap;
+}
+.dday-badge.today { background: var(--warn-soft); color: var(--warn); }
+.dday-badge.overdue { background: var(--danger-soft); color: var(--danger); }
+
+.report-retro-col { padding: 10px 0; border-top: 1px solid var(--line); }
+.report-retro-col:first-child { border-top: none; padding-top: 0; }
+.report-retro-head { font-weight: 700; font-size: 0.86rem; margin: 0 0 6px; }
+
+.report-footnote { color: var(--ink-faint); font-size: 0.8rem; margin: 32px 0 0; }
+
+@media print {
+  header.site nav, .share-box .btn, footer.site { display: none; }
+  .report-grid { grid-template-columns: 1fr 1fr; }
+  body { background: #fff; }
 }

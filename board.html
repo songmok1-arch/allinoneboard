@@ -27,6 +27,7 @@
         <code id="shareUrl">...</code>
         <button class="btn ghost" id="copyLinkBtn">링크 복사</button>
         <button class="btn ghost" id="exportBtn">전체 현황 마크다운으로 복사</button>
+        <a class="btn ghost" id="reportLink" href="#" target="_blank" rel="noopener">주간 리포트 보기</a>
       </div>
     </div>
   </section>
@@ -691,6 +692,7 @@
       currentProject = await loadProjectByCode(code);
       projectTitleEl.textContent = currentProject.title;
       shareUrlEl.textContent = window.location.href;
+      document.getElementById("reportLink").href = `report.html?p=${encodeURIComponent(code)}`;
       await Promise.all([
         refreshMeetings(), refreshMilestones(), refreshIssues(), refreshFeedback(),
         refreshReports(), refreshTasks(), refreshRisks(), refreshRetroItems(),

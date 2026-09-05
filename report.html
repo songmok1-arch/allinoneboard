@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간 리포트 — PM 올인원 보드</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html" style="color:inherit;"><span class="mark">A</span> PM 올인원 보드</a>
+    <nav class="site-nav">
+      <a href="index.html">새 프로젝트 만들기</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="padding:40px 0 8px;">
+    <div class="wrap">
+      <p class="eyebrow">주간 리포트</p>
+      <h1 id="projectTitle">불러오는 중...</h1>
+      <div class="share-box">
+        열어볼 때마다 그 시점의 최신 현황을 자동으로 정리해서 보여줍니다 —
+        <span id="asOf" class="mono-ish"></span>
+        <a class="btn ghost" id="boardLink" href="#">보드로 돌아가기</a>
+        <button class="btn ghost" id="printBtn">인쇄 / PDF로 저장</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <section class="attention-strip" id="attentionStrip" style="padding-top:8px;">
+      <h2 class="report-h2">이번 주 주목할 점</h2>
+      <div class="attn-row" id="attentionRow"></div>
+    </section>
+
+    <section class="report-section" style="padding-top:32px;">
+      <div class="report-section-head">
+        <h2 class="report-h2">실행 현황</h2>
+        <span class="report-section-sub">회의록 · 마일스톤 · 이슈/리스크 · 승인요청</span>
+      </div>
+      <div class="report-grid">
+        <div class="card">
+          <h3 class="report-card-title">회의록 / 액션아이템</h3>
+          <div id="rptMeetings"></div>
+        </div>
+        <div class="card">
+          <h3 class="report-card-title">마일스톤</h3>
+          <div id="rptMilestones"></div>
+        </div>
+        <div class="card">
+          <h3 class="report-card-title">이슈 / 리스크</h3>
+          <div id="rptIssues"></div>
+        </div>
+        <div class="card">
+          <h3 class="report-card-title">피드백 / 승인 요청</h3>
+          <div id="rptFeedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="report-section" style="padding-top:36px;">
+      <div class="report-section-head routine">
+        <h2 class="report-h2">정기 루틴</h2>
+        <span class="report-section-sub">상태보고 · 워크로드 · 리스크매트릭스 · 회고</span>
+      </div>
+      <div class="report-grid">
+        <div class="card">
+          <h3 class="report-card-title">최근 상태보고서</h3>
+          <div id="rptReports"></div>
+        </div>
+        <div class="card">
+          <h3 class="report-card-title">워크로드</h3>
+          <div id="rptTasks"></div>
+        </div>
+        <div class="card">
+          <h3 class="report-card-title">리스크매트릭스</h3>
+          <div id="rptRisks"></div>
+        </div>
+        <div class="card">
+          <h3 class="report-card-title">회고</h3>
+          <div id="rptRetro"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap">
+    <p class="report-footnote">이 페이지는 저장되지 않는 실시간 스냅샷입니다 — 매번 열 때마다 그 시점의 최신 데이터를 다시 불러옵니다. 팀에 공유하려면 이 링크를 그대로 전달하시면 됩니다.</p>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("p");
+
+  const projectTitleEl = document.getElementById("projectTitle");
+  const asOfEl = document.getElementById("asOf");
+  const boardLinkEl = document.getElementById("boardLink");
+
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function formatDday(dueDate) {
+    if (!dueDate) return "";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate + "T00:00:00");
+    const diffDays = Math.round((due - today) / 86400000);
+    if (diffDays === 0) return `<span class="dday-badge today">D-day</span>`;
+    if (diffDays > 0) return `<span class="dday-badge">D-${diffDays}</span>`;
+    return `<span class="dday-badge overdue">D+${Math.abs(diffDays)}</span>`;
+  }
+
+  function emptyRow(text) {
+    return `<p class="report-empty">${escapeHtml(text)}</p>`;
+  }
+
+  async function loadEverything(projectId) {
+    const [meetings, milestones, issues, feedbackItems, reports, tasks, risks, retroItems] = await Promise.all([
+      loadMeetings(projectId),
+      loadMilestones(projectId),
+      loadIssues(projectId),
+      loadFeedbackItems(projectId),
+      loadReports(projectId),
+      loadTasks(projectId),
+      loadRisks(projectId),
+      loadRetroItems(projectId),
+    ]);
+    const meetingIds = meetings.map((m) => m.id);
+    const actionItems = await loadActionItems(meetingIds);
+    return { meetings, milestones, issues, feedbackItems, reports, tasks, risks, retroItems, actionItems };
+  }
+
+  function renderMeetings(meetings, actionItems) {
+    if (!meetings.length) return emptyRow("아직 등록된 회의가 없습니다.");
+    return meetings.map((m) => {
+      const items = actionItems.filter((a) => a.meeting_id === m.id);
+      const itemsHtml = items.length
+        ? items.map((a) => `
+            <div class="report-subrow">
+              <span>${a.status === "done" ? "☑" : "☐"} ${escapeHtml(a.task)}${a.owner ? " — " + escapeHtml(a.owner) : ""}</span>
+              <span class="status-pill status-${a.status}">${actionItemStatusLabel(a.status)}</span>
+            </div>`).join("")
+        : `<div class="report-subrow report-empty" style="padding:2px 0;">등록된 액션아이템 없음</div>`;
+      return `
+        <div class="report-item">
+          <div class="report-item-top">
+            <span class="report-item-title">${escapeHtml(m.title)}</span>
+            <span class="mono-ish">${m.meeting_date || ""}</span>
+          </div>
+          ${itemsHtml}
+        </div>`;
+    }).join("");
+  }
+
+  function renderMilestones(milestones) {
+    if (!milestones.length) return emptyRow("아직 등록된 마일스톤이 없습니다.");
+    return milestones.map((m) => `
+      <div class="report-item">
+        <div class="report-item-top">
+          <span class="report-item-title">${escapeHtml(m.title)}</span>
+          ${m.due_date ? formatDday(m.due_date) : ""}
+        </div>
+        <div class="report-subrow">
+          <span class="report-item-sub">${m.due_date ? m.due_date + " 까지" : "기한 없음"}</span>
+          <span class="status-pill status-${m.status}">${milestoneStatusLabel(m.status)}</span>
+        </div>
+      </div>`).join("");
+  }
+
+  function renderIssues(issues) {
+    if (!issues.length) return emptyRow("아직 등록된 이슈가 없습니다.");
+    return issues.map((it) => `
+      <div class="report-item">
+        <div class="report-item-top">
+          <span class="report-item-title">${escapeHtml(it.title)}</span>
+          <span class="severity-tag severity-${it.severity}">${severityLabel(it.severity)}</span>
+        </div>
+        <div class="report-subrow">
+          <span class="report-item-sub">${it.owner ? "담당 " + escapeHtml(it.owner) : "담당 미지정"}</span>
+          <span class="status-pill status-${it.status}">${issueStatusLabel(it.status)}</span>
+        </div>
+      </div>`).join("");
+  }
+
+  function renderFeedback(items) {
+    if (!items.length) return emptyRow("아직 등록된 요청이 없습니다.");
+    return items.map((f) => `
+      <div class="report-item">
+        <div class="report-item-top">
+          <span class="report-item-title">${escapeHtml(f.title)}</span>
+          <span class="status-pill status-${f.status}">${feedbackStatusLabel(f.status)}</span>
+        </div>
+      </div>`).join("");
+  }
+
+  function renderReports(reports) {
+    if (!reports.length) return emptyRow("아직 등록된 보고서가 없습니다.");
+    const r = reports[0];
+    return `
+      <div class="report-item">
+        <div class="report-item-top">
+          <span class="report-item-title">${r.report_date}</span>
+          <span class="status-pill status-${escapeHtml(r.health)}">${healthLabel(r.health)}</span>
+        </div>
+        <p class="report-kv"><b>이번 주 진행 요약</b><br>${escapeHtml(r.progress_summary) || "-"}</p>
+        <p class="report-kv"><b>이슈 · 리스크</b><br>${escapeHtml(r.risks_issues) || "-"}</p>
+        <p class="report-kv"><b>다음 주 계획</b><br>${escapeHtml(r.next_week_plan) || "-"}</p>
+      </div>
+      ${reports.length > 1 ? `<p class="report-item-sub" style="margin-top:8px;">이전 보고서 ${reports.length - 1}건 더 있음 (보드에서 전체 확인 가능)</p>` : ""}`;
+  }
+
+  function renderTasks(tasks) {
+    if (!tasks.length) return emptyRow("아직 등록된 업무가 없습니다.");
+    const groups = groupByOwner(tasks);
+    return groups.map((g) => `
+      <div class="report-item">
+        <div class="report-item-top">
+          <span class="report-item-title">${escapeHtml(g.owner_name)}</span>
+          <span class="workload-badge">진행중 ${g.activeCount}건</span>
+        </div>
+        ${g.tasks.map((t) => `
+          <div class="report-subrow">
+            <span>${escapeHtml(t.title)} ${t.due_date ? formatDday(t.due_date) : ""}</span>
+            <span class="status-pill status-${t.status}">${taskStatusLabel(t.status)}</span>
+          </div>`).join("")}
+      </div>`).join("");
+  }
+
+  function renderRisks(risks) {
+    if (!risks.length) return emptyRow("아직 등록된 리스크가 없습니다.");
+    return risks.map((r) => `
+      <div class="report-item">
+        <div class="report-item-top">
+          <span class="report-item-title">${escapeHtml(r.title)}</span>
+          <span class="severity-tag ${riskLevelClass(r.probability, r.impact)}">${riskLevel(r.probability, r.impact)}</span>
+        </div>
+        <div class="report-subrow">
+          <span class="report-item-sub">확률 ${probabilityLabel(r.probability)} · 영향 ${impactLabel(r.impact)}${r.owner ? " · 담당 " + escapeHtml(r.owner) : ""}</span>
+          <span class="status-pill status-${r.status}">${riskStatusLabel(r.status)}</span>
+        </div>
+      </div>`).join("");
+  }
+
+  function renderRetro(items) {
+    if (!items.length) return emptyRow("아직 남긴 회고 내용이 없습니다.");
+    const cats = [
+      { key: "good", label: "👍 잘한 점" },
+      { key: "improve", label: "🤔 아쉬운 점" },
+      { key: "action", label: "➡ 다음 액션" },
+    ];
+    return cats.map((c) => {
+      const rows = items.filter((it) => it.category === c.key);
+      return `
+        <div class="report-retro-col">
+          <p class="report-retro-head">${c.label} <span class="mono-ish">${rows.length}</span></p>
+          ${rows.length ? rows.map((r) => `<p class="report-item-sub">${escapeHtml(r.author_name)} — ${escapeHtml(r.content)}</p>`).join("") : `<p class="report-empty">없음</p>`}
+        </div>`;
+    }).join("");
+  }
+
+  function buildAttention({ issues, risks, reports }) {
+    const chips = [];
+    const urgentIssues = issues.filter((it) => (it.severity === "high" || it.severity === "critical") && it.status !== "resolved");
+    urgentIssues.forEach((it) => {
+      chips.push({
+        level: it.severity === "critical" ? "critical" : "warn",
+        label: `이슈 · ${it.title}`,
+        sub: `${severityLabel(it.severity)} · ${issueStatusLabel(it.status)}${it.owner ? " · 담당 " + it.owner : ""}`,
+      });
+    });
+    risks.filter((r) => r.status !== "closed" && riskLevel(r.probability, r.impact) !== "낮음" && riskLevel(r.probability, r.impact) !== "보통")
+      .forEach((r) => {
+        chips.push({
+          level: riskLevel(r.probability, r.impact) === "매우높음" ? "critical" : "warn",
+          label: `리스크 · ${r.title}`,
+          sub: `${riskLevel(r.probability, r.impact)} · ${riskStatusLabel(r.status)}${r.owner ? " · 담당 " + r.owner : ""}`,
+        });
+      });
+    if (reports.length && (reports[0].health === "warning" || reports[0].health === "risk")) {
+      chips.push({
+        level: reports[0].health === "risk" ? "critical" : "warn",
+        label: `상태보고 신호등 · ${healthLabel(reports[0].health)}`,
+        sub: `${reports[0].report_date} · ${reports[0].progress_summary || ""}`,
+      });
+    }
+    if (!chips.length) {
+      return `<p class="report-empty">이번 주 특별히 위험하거나 지연된 항목은 없습니다.</p>`;
+    }
+    return chips.map((c) => `
+      <div class="attn-chip ${c.level}">
+        <span class="attn-dot"></span>
+        <span class="attn-label">${escapeHtml(c.label)}</span>
+        <span class="attn-sub">${escapeHtml(c.sub)}</span>
+      </div>`).join("");
+  }
+
+  async function init() {
+    if (!code) {
+      projectTitleEl.textContent = "프로젝트를 찾을 수 없습니다";
+      return;
+    }
+    boardLinkEl.href = `board.html?p=${encodeURIComponent(code)}`;
+    try {
+      const project = await loadProjectByCode(code);
+      projectTitleEl.textContent = `${project.title} — 주간 리포트`;
+      asOfEl.textContent = new Date().toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" });
+
+      const data = await loadEverything(project.id);
+
+      document.getElementById("attentionRow").innerHTML = buildAttention(data);
+      document.getElementById("rptMeetings").innerHTML = renderMeetings(data.meetings, data.actionItems);
+      document.getElementById("rptMilestones").innerHTML = renderMilestones(data.milestones);
+      document.getElementById("rptIssues").innerHTML = renderIssues(data.issues);
+      document.getElementById("rptFeedback").innerHTML = renderFeedback(data.feedbackItems);
+      document.getElementById("rptReports").innerHTML = renderReports(data.reports);
+      document.getElementById("rptTasks").innerHTML = renderTasks(data.tasks);
+      document.getElementById("rptRisks").innerHTML = renderRisks(data.risks);
+      document.getElementById("rptRetro").innerHTML = renderRetro(data.retroItems);
+    } catch (e) {
+      projectTitleEl.textContent = "불러오지 못했습니다";
+      document.getElementById("attentionRow").innerHTML = `<p class="report-empty">프로젝트 정보를 불러오지 못했습니다. config.js 설정과 Supabase 스키마를 확인해주세요.</p>`;
+    }
+  }
+
+  document.getElementById("printBtn").addEventListener("click", () => window.print());
+
+  init();
+</script>
+</body>
+</html>
