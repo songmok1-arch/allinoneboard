@@ -9,6 +9,16 @@
 </head>
 <body>
 
+<div id="pinGateOverlay" class="pin-gate-overlay" style="display:none;">
+  <div class="pin-gate-card">
+    <h2>🔒 접근 암호가 필요합니다</h2>
+    <p>이 프로젝트는 접근 암호로 보호되어 있습니다. 암호를 입력해주세요.</p>
+    <input type="password" id="pinGateInput" placeholder="접근 암호">
+    <button type="button" class="btn" id="pinGateBtn" style="width:100%; margin-top:10px;">확인</button>
+    <p id="pinGateError" class="pin-gate-error" style="display:none;">암호가 올바르지 않습니다. 다시 시도해주세요.</p>
+  </div>
+</div>
+
 <header class="site">
   <div class="wrap">
     <a class="brand" href="index.html" style="color:inherit;"><span class="mark">A</span> PM 올인원 보드</a>
@@ -299,11 +309,7 @@
     boardLinkEl.href = `board.html?p=${encodeURIComponent(code)}`;
     try {
       const project = await loadProjectByCode(code);
-      if (!guardProjectPin(project)) {
-        projectTitleEl.textContent = "잠긴 프로젝트입니다";
-        document.getElementById("attentionRow").innerHTML = `<p class="report-empty">암호를 입력하지 않아 내용을 볼 수 없습니다. 새로고침하면 다시 입력할 수 있습니다.</p>`;
-        return;
-      }
+      await guardProjectPinAsync(project, "pinGateOverlay", "pinGateInput", "pinGateBtn", "pinGateError");
       projectTitleEl.textContent = `${project.title} — 주간 리포트`;
       asOfEl.textContent = new Date().toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" });
 

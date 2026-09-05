@@ -50,6 +50,12 @@ nav.site-nav a { color: var(--ink-soft); }
 /* ---- hero / sections ---- */
 .hero { padding: 64px 0 40px; }
 .eyebrow { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 12px; }
+.eyebrow-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.eyebrow-chips .chip {
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px; padding: 6px 14px; white-space: nowrap;
+}
 h1 { font-size: 2.1rem; line-height: 1.35; margin: 0 0 14px; letter-spacing: -0.01em; }
 h2 { font-size: 1.4rem; margin: 0 0 10px; letter-spacing: -0.01em; }
 h3 { font-size: 1.08rem; margin: 0 0 8px; }
@@ -303,3 +309,22 @@ footer.site a { color: var(--ink-faint); margin-right: 14px; }
   .report-grid { grid-template-columns: 1fr 1fr; }
   body { background: #fff; }
 }
+
+/* ---- 접근 암호(PIN) 잠금 화면 ---- */
+.pin-gate-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.pin-gate-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); max-width: 380px; width: 100%; padding: 28px 24px; text-align: center;
+}
+.pin-gate-card h2 { font-size: 1.1rem; margin: 0 0 8px; }
+.pin-gate-card p { color: var(--ink-soft); font-size: 0.88rem; margin: 0 0 16px; }
+.pin-gate-card input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 0.95rem; font-family: inherit; text-align: center;
+}
+.pin-gate-error { color: var(--danger); font-size: 0.82rem; margin: 10px 0 0; }

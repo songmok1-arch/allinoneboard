@@ -14,6 +14,11 @@ create table if not exists aob_projects (
   created_at timestamptz not null default now()
 );
 
+-- 이미 설치된 프로젝트에도 접근 암호(PIN) 컬럼을 추가합니다.
+-- (기존 "create table if not exists"는 이미 만들어진 테이블에는 컬럼을 추가해주지 않으므로,
+--  이 문장을 별도로 둡니다. 스키마 파일 전체를 다시 실행해도 안전합니다.)
+alter table aob_projects add column if not exists access_pin text;
+
 -- ===================== 실행 현황 (구 프로젝트보드) =====================
 
 create table if not exists aob_milestones (
@@ -140,6 +145,12 @@ create index if not exists aob_retro_items_project_id_idx on aob_retro_items (pr
 -- MVP 정책: 링크(share_code)를 아는 사람은 누구나 읽고 쓸 수 있습니다.
 -- 별도 로그인이 없는 대신, 링크 자체가 비밀번호 역할을 합니다.
 -- 실제 회사 내부 정보를 다루게 되면 나중에 이메일 인증 등으로 강화하는 것을 권장합니다.
+--
+-- aob_projects.access_pin(선택 항목)은 board.html/report.html 화면에 들어가기 전
+-- 화면 잠금을 하나 더 거는 용도입니다. 다만 RLS 자체는 여전히 완전히 개방되어 있어
+-- Supabase API를 직접 호출하면 이 PIN도 우회할 수 있습니다 — "같은 회사 동료가 실수로
+-- 다른 프로젝트 링크를 열어보는 것"을 막는 수준이지, 진짜 접근 통제는 아닙니다.
+-- 더 강한 보호가 필요하면 Supabase Auth 기반 로그인 + RLS 정책으로 교체해야 합니다.
 
 alter table aob_projects enable row level security;
 alter table aob_milestones enable row level security;
